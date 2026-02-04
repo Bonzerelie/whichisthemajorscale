@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>Which is the Major Scale?</title>
+<link href="style.css" rel="stylesheet"/>
+</head>
+<body>
+<div class="app">
+<header class="hero">
+<h1 class="app-title">Which is the Major Scale? 🎹</h1>
+<p class="app-subtitle">
+        Press <strong>Begin Game</strong>, then compare <strong>Scale 1</strong> and <strong>Scale 2</strong> -
+        one is a major scale, the other is not - which one is it?!
+        <br/>Select <strong>Play Reference C Major Scale</strong> any time to hear a reference major scale.
+      </p>
+</header>
+
+<section aria-label="actions" class="controlsPanel controlsPanelActions">
+  <div class="control">
+    <div class="actionsRow actionsCentered">
+      <div class="menuStack">
+        <div class="menuRow">
+          <button class="primary pulse" id="beginBtn" type="button">Begin Game</button>
+          <label class="inlineControl inlineControlRow">
+            <select class="compactSelect" id="rootMode">
+              <option value="same">Same root for both scales</option>
+              <option value="different">Different roots</option>
+            </select>
+          </label>
+          <button id="infoBtn" type="button" class="btnSubtle">More Information</button>
+        </div>
+
+        <div class="menuRow">
+          <button disabled="" id="playScale1Btn" type="button">Play Scale 1</button>
+          <button disabled="" id="playScale2Btn" type="button">Play Scale 2</button>
+          <button disabled="" id="playReferenceBtn" type="button">Play Reference C Major Scale</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section aria-label="question" class="questionBar">
+  <div class="questionRow">
+    <div class="questionText">Which was the Major Scale?</div>
+    <div class="answerRow">
+      <button class="primary" disabled="" id="answerScale1Btn" type="button">Scale 1</button>
+      <button class="primary" disabled="" id="answerScale2Btn" type="button">Scale 2</button>
+    </div>
+  </div>
+</section>
+
+<section aria-label="status" class="analysis">
+  <div class="analysisGrid oneCol">
+    <div class="analysisCard">
+      <div class="analysisLabel">Score Card</div>
+      <div class="analysisBody scoreBody" id="scoreOut">—</div>
+      <div class="scoreActions">
+        <button class="scoreDownloadBtn" disabled="" id="downloadScoreBtn" type="button">Download Score Card!</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div aria-live="polite" class="feedbackLine fixedFeedback visuallyHidden" id="feedbackOut">
+  Press <strong>Begin Game</strong> to start.
+</div>
+
+<section aria-label="piano keyboard" class="stage">
+  <div class="mount" id="mount"></div>
+</section>
+
+<footer class="endnotes"></footer>
+</div>
+
+<div aria-labelledby="modalTitle" aria-modal="true" class="modal hidden" id="streakModal" role="dialog">
+  <div class="modalCard">
+    <div class="modalTitle" id="modalTitle">Milestone!</div>
+    <div class="modalBody" id="modalBody">—</div>
+    <div class="modalActions">
+      <button class="hidden" id="modalDownload" type="button">Download Record PNG</button>
+      <button class="primary" id="modalClose" type="button">Close</button>
+    </div>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
