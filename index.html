@@ -1,91 +1,196 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1" name="viewport"/>
-<title>Which is the Major Scale?</title>
-<link href="style.css" rel="stylesheet"/>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1" name="viewport"/>
+  <title>Which is the Major Scale?</title>
+  <link href="style.css" rel="stylesheet"/>
 </head>
 <body>
-<div class="app">
-<header class="hero">
-<h1 class="app-title">Which is the Major Scale? 🎹</h1>
-<p class="app-subtitle">
-        Press <strong>Begin Game</strong>, then compare <strong>Scale 1</strong> and <strong>Scale 2</strong> -
+  <div class="app">
+    <header class="hero">
+      <div class="app-titleWrap titleModeWide" id="titleWrap" aria-label="Which is the Major Scale?">
+        <img
+          class="app-titleImg app-titleImgWide"
+          id="titleImgWide"
+          src="images/title.png"
+          alt="Which is the Major Scale?"
+        />
+        <img
+          class="app-titleImg app-titleImgWrapped"
+          id="titleImgWrapped"
+          src="images/titlewrapped.png"
+          alt="Which is the Major Scale?"
+        />
+      </div>
+
+      <p class="app-subtitle hidden" id="subtitle">
+        Compare <strong>Scale 1</strong> and <strong>Scale 2</strong> -
         one is a major scale, the other is not - which one is it?!
         <br/>Select <strong>Play Reference C Major Scale</strong> any time to hear a reference major scale.
       </p>
-</header>
+    </header>
 
-<section aria-label="actions" class="controlsPanel controlsPanelActions">
-  <div class="control">
-    <div class="actionsRow actionsCentered">
-      <div class="menuStack">
-        <div class="menuRow">
-          <button class="primary pulse" id="beginBtn" type="button">Begin Game</button>
-          <label class="inlineControl inlineControlRow">
-            <select class="compactSelect" id="rootMode">
-              <option value="same">Same root for both scales</option>
-              <option value="different">Different roots</option>
-            </select>
-          </label>
-          <button id="infoBtn" type="button" class="btnSubtle">More Information</button>
+    <section aria-label="actions" class="controlsPanel controlsPanelActions">
+      <div class="control">
+        <div class="actionsRow actionsCentered">
+          <button id="settingsBtn" type="button">Game Settings</button>
+          <button id="infoBtn" type="button">Info / Help</button>
+          <button id="restartBtn" type="button" disabled>Restart Game</button>
         </div>
+      </div>
+    </section>
 
-        <div class="menuRow">
-          <button disabled="" id="playScale1Btn" type="button">Play Scale 1</button>
-          <button disabled="" id="playScale2Btn" type="button">Play Scale 2</button>
-          <button disabled="" id="playReferenceBtn" type="button">Play Reference C Major Scale</button>
+    <section aria-label="playback controls" class="controlsPanel controlsPanelActions">
+      <div class="control">
+        <div class="actionsRow actionsCentered">
+          <button id="playScale1Btn" type="button">Play Scale 1</button>
+          <button id="playScale2Btn" type="button">Play Scale 2</button>
+          <button id="playReferenceBtn" type="button">Play Reference C Major</button>
+        </div>
+      </div>
+    </section>
+
+    <section aria-label="answer controls" class="controlsPanel controlsPanelActions">
+      <div class="control">
+        <div class="actionsRow actionsCentered">
+          <button class="primary answerBtn" id="answerScale1Btn" type="button">Scale 1</button>
+          <button class="primary answerBtn" id="answerScale2Btn" type="button">Scale 2</button>
+          <button id="nextBtn" type="button" disabled>Next</button>
+        </div>
+      </div>
+    </section>
+
+    <div aria-live="polite" class="feedbackLine" id="feedbackOut">
+      Press <strong>Play Scale 1</strong> and <strong>Play Scale 2</strong>, then choose which was Major.
+    </div>
+    <div id="questionHint" class="actionHint"></div>
+
+    <section aria-label="piano keyboard" class="stage">
+      <div class="mount" id="mount"></div>
+    </section>
+
+    <section aria-label="status" class="analysis" style="max-width: 600px; margin-bottom: 24px;">
+      <div class="analysisGrid oneCol">
+        <div class="analysisCard scoreCardNarrow">
+          <div class="analysisLabel">Score Card</div>
+          <div class="scoreMeta" id="scoreMeta">Mode: —</div>
+
+          <div class="scoreActions" style="margin-bottom: 16px;">
+            <input id="playerNameInput" type="text" inputmode="text" autocomplete="name" maxlength="32" placeholder="Click to enter your name" />
+            <button id="downloadScoreBtn" type="button">Download Scorecard</button>
+          </div>
+
+          <div class="scoreGrid scoreGridVertical" id="scoreOut">
+            </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="endnotes"></footer>
+  </div>
+
+  <div aria-labelledby="introTitle" aria-modal="true" class="modal" id="introModal" role="dialog">
+    <div class="modalCard">
+      <img class="app-titleImg" src="images/title.png" style="margin: 0 auto; max-width: 100%;">
+      <div style="display: flex; justify-content: center; gap: 24px; margin-top: 16px; margin-bottom: 8px; flex-wrap: wrap;">
+        <div class="inlineControl">
+          <div class="settingsLabel">Root Notes</div>
+          <select aria-label="Select root mode" class="compactSelect compactSelectAuto" id="introRootModeSelect">
+            <option value="same" selected>Same root for both scales</option>
+            <option value="different">Different roots</option>
+          </select>
+        </div>
+      </div>
+      <div class="modalTitle" id="introTitle">How to Play</div>
+      <div class="modalBody">
+        <p>A majority of modern Western music uses the Major scale as its harmonic foundation, therefore recognising the tonality, or 'sound', of the Major scale is a hugely important skill. This game is designed to help you learn to identify that Major scale sound. You will hear two scales played in sequence: <strong>Scale 1</strong> and <strong>Scale 2</strong>.</p>
+        <p>One of the recordings is a Major scale, and one is not - your job is to identify which one is! You can play a reference C Major scale anytime to recalibrate your ear. Adjust settings anytime via <strong>Game Settings</strong>.</p>
+      </div>
+      <div class="modalActions modalActionsCentered" style="margin-bottom: 2px;">
+        <button class="primary pulse" id="introBeginBtn" type="button">Continue To Game</button>
+      </div>
+    </div>
+  </div>
+
+  <div aria-labelledby="settingsTitle" aria-modal="true" class="modal hidden" id="settingsModal" role="dialog">
+    <div class="modalCard">
+      <div class="modalTitle" id="settingsTitle">Game Settings ⚙️</div>
+      <div class="modalBody">
+        <p style="margin:0 0 12px;">Choose your game rules. Note, applying new settings will restart the game and reset the score!</p>
+        <div class="settingsGrid">
+          <div class="settingsLabel">Root Notes</div>
+          <select aria-label="Select root mode" class="compactSelect compactSelectAuto" id="settingsRootModeSelect">
+            <option value="same">Same root for both scales</option>
+            <option value="different">Different roots</option>
+          </select>
+        </div>
+      </div>
+      <div class="modalActions">
+        <button class="confirmPrimary" id="settingsRestartBtn" type="button" disabled>Restart Game With New Settings</button>
+        <button id="settingsCancelBtn" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div aria-labelledby="infoTitle" aria-modal="true" class="modal hidden" id="infoModal" role="dialog">
+    <div class="modalCard">
+      <div class="modalTitle" id="infoTitle">Information</div>
+      <div class="modalBody" id="infoBody">
+        <p>The vast majority of Western music uses the major scale as its harmonic basis. Because of this, and our continued exposure to Western music, we are often able to recognise the sound or 'tonality' of the major scale.</p>
+        <p>Recognising the major scale is a very useful skill, and something we can practice here. Compare the two scales and choose the correct one. You can use keys <strong>1</strong> or <strong>2</strong> to replay scales, <strong>C</strong> for the reference scale, and <strong>left arrow</strong> / <strong>right arrow</strong> to answer.</p>
+        <p>You can also download a score card .png to track your progress over time!</p>
+        <div class="modalActions">
+          <button class="primary" id="infoClose" type="button">Close</button>
         </div>
       </div>
     </div>
   </div>
-</section>
 
-<section aria-label="question" class="questionBar">
-  <div class="questionRow">
-    <div class="questionText">Which was the Major Scale?</div>
-    <div class="answerRow">
-      <button class="primary" disabled="" id="answerScale1Btn" type="button">Scale 1</button>
-      <button class="primary" disabled="" id="answerScale2Btn" type="button">Scale 2</button>
-    </div>
-  </div>
-</section>
+  <div aria-labelledby="scoreModalTitle" aria-modal="true" class="modal hidden" id="scoreModal" role="dialog">
+    <div class="modalCard">
+      <div class="modalTitle" id="scoreModalTitle" style="margin-bottom: 16px;">Current game ended - here's your scorecard!</div>
+      <div class="modalBody">
+        <div class="analysisGrid" style="width: 100%;">
+          <div class="analysisCard scoreCardNarrow">
+            <div class="analysisLabel">Score Card</div>
+            <div class="scoreMeta" id="modalScoreMeta">Mode: —</div>
 
-<section aria-label="status" class="analysis">
-  <div class="analysisGrid oneCol">
-    <div class="analysisCard">
-      <div class="analysisLabel">Score Card</div>
-      <div class="analysisBody scoreBody" id="scoreOut">—</div>
-      <div class="scoreActions">
-        <button class="scoreDownloadBtn" disabled="" id="downloadScoreBtn" type="button">Download Score Card!</button>
+            <div class="scoreActions" style="margin-bottom: 16px;">
+              <input id="modalPlayerNameInput" type="text" inputmode="text" autocomplete="name" maxlength="32" placeholder="Click to enter your name" />
+              <button id="modalDownloadScorecardBtn" type="button">Download Scorecard</button>
+            </div>
+
+            <div class="scoreGrid scoreGridVertical">
+              <div class="scoreItem"><span class="scoreK">Questions asked</span><span class="scoreV" id="modalAsked">0</span></div>
+              <div class="scoreItem"><span class="scoreK">Answers correct</span><span class="scoreV" id="modalCorrect">0</span></div>
+              <div class="scoreItem"><span class="scoreK">Correct in a row</span><span class="scoreV" id="modalStreak">0</span></div>
+              <div class="scoreItem"><span class="scoreK">Longest correct streak</span><span class="scoreV" id="modalLongest">0</span></div>
+              <div class="scoreItem"><span class="scoreK">Percentage correct</span><span class="scoreV" id="modalPercent">0.0%</span></div>
+            </div>
+            
+            <div class="scoreFooter">Which is the Major Scale?</div>
+
+          </div>
+        </div>
+      </div>
+      <div class="modalActions modalActionsCentered" style="margin-top: 16px;">
+        <button class="primary pulse" id="scoreModalContinueBtn" type="button">Continue</button>
       </div>
     </div>
   </div>
-</section>
 
-<div aria-live="polite" class="feedbackLine fixedFeedback visuallyHidden" id="feedbackOut">
-  Press <strong>Begin Game</strong> to start.
-</div>
-
-<section aria-label="piano keyboard" class="stage">
-  <div class="mount" id="mount"></div>
-</section>
-
-<footer class="endnotes"></footer>
-</div>
-
-<div aria-labelledby="modalTitle" aria-modal="true" class="modal hidden" id="streakModal" role="dialog">
-  <div class="modalCard">
-    <div class="modalTitle" id="modalTitle">Milestone!</div>
-    <div class="modalBody" id="modalBody">—</div>
-    <div class="modalActions">
-      <button class="hidden" id="modalDownload" type="button">Download Record PNG</button>
-      <button class="primary" id="modalClose" type="button">Close</button>
+  <div class="modal hidden" id="streakModal" role="dialog" aria-modal="true" aria-labelledby="modalTitleRecord">
+    <div class="modalCard">
+      <div class="modalTitle" id="modalTitleRecord">Milestone!</div>
+      <div class="modalBody" id="modalBodyRecord">—</div>
+      <div class="modalActions">
+        <button id="modalDownloadRecord" type="button">Download Record PNG</button>
+        <button id="modalCloseRecord" type="button" class="primary">Close</button>
+      </div>
     </div>
   </div>
-</div>
 
-<script src="script.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>

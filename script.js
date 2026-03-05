@@ -1,19 +1,25 @@
 /* /script.js
    Which is the Major Scale?
-   - Uses the same keyboard/audio template as the existing game.
-   - Requires a user gesture to start audio (Begin Game button).
+   - Squarespace iframe sizing + scroll forwarding preserved
 */
 (() => {
   "use strict";
 
   const AUDIO_DIR = "audio";
+  const LS_KEY_NAME = "ms_player_name";
+
+  // UI Sounds
+  const UI_SND_SELECT = "select1.mp3";
+  const UI_SND_BACK = "back1.mp3";
+  const UI_SND_CORRECT = "correct1.mp3";
+  const UI_SND_INCORRECT = "incorrect1.mp3";
 
   // Playback timing (seconds)
-  const NOTE_GAP_SEC = 0.30;     // onset-to-onset gap
-  const NOTE_HOLD_SEC = 0.50;    // full level hold (per note)
-  const NOTE_FADEIN_SEC = 0.01;  // fade in (per note)
-  const NOTE_FADE_SEC = 0.40;    // fade to silence (per note)
-  const START_LEAD_SEC = 0.06;   // tiny lead-in so UI can update
+  const NOTE_GAP_SEC = 0.30;     
+  const NOTE_HOLD_SEC = 0.50;    
+  const NOTE_FADEIN_SEC = 0.01;  
+  const NOTE_FADE_SEC = 0.40;    
+  const START_LEAD_SEC = 0.06;   
   const STOP_FADE_SEC = 0.06;
 
   // Keyboard rendering
@@ -35,21 +41,9 @@
   // Keyboard highlight fade (seconds) – separate from audio envelope; purely visual.
   const KEY_FLASH_TOTAL_SEC = 1.85;
 
-  const LIMITER_THRESHOLD_DB = -6;
-
   const PC_TO_STEM = {
-    0: "c",
-    1: "csharp",
-    2: "d",
-    3: "dsharp",
-    4: "e",
-    5: "f",
-    6: "fsharp",
-    7: "g",
-    8: "gsharp",
-    9: "a",
-    10: "asharp",
-    11: "b",
+    0: "c", 1: "csharp", 2: "d", 3: "dsharp", 4: "e", 5: "f",
+    6: "fsharp", 7: "g", 8: "gsharp", 9: "a", 10: "asharp", 11: "b",
   };
 
   const PC_NAMES_SHARP = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
@@ -73,43 +67,74 @@
 
   const mount = $("mount");
 
-  const beginBtn = $("beginBtn");
+  const titleWrap = $("titleWrap");
+  const titleImgWide = $("titleImgWide");
+  const titleImgWrapped = $("titleImgWrapped");
+  
+  const restartBtn = $("restartBtn");
   const playScale1Btn = $("playScale1Btn");
   const playScale2Btn = $("playScale2Btn");
   const playReferenceBtn = $("playReferenceBtn");
   const answerScale1Btn = $("answerScale1Btn");
   const answerScale2Btn = $("answerScale2Btn");
-  const rootModeSel = $("rootMode");
+  const nextBtn = $("nextBtn");
 
+  const settingsBtn = $("settingsBtn");
+  const infoBtn = $("infoBtn");
   const downloadScoreBtn = $("downloadScoreBtn");
 
   const feedbackOut = $("feedbackOut");
   const scoreOut = $("scoreOut");
   const questionHint = $("questionHint");
 
+  // Modals
+  const introModal = $("introModal");
+  const introBeginBtn = $("introBeginBtn");
+  const introRootModeSelect = $("introRootModeSelect");
+
+  const settingsModal = $("settingsModal");
+  const settingsRootModeSelect = $("settingsRootModeSelect");
+  const settingsRestartBtn = $("settingsRestartBtn");
+  const settingsCancelBtn = $("settingsCancelBtn");
+
+  const infoModal = $("infoModal");
+  const infoClose = $("infoClose");
+
+  const scoreModal = $("scoreModal");
+  const scoreModalContinueBtn = $("scoreModalContinueBtn");
+  const modalDownloadScorecardBtn = $("modalDownloadScorecardBtn");
+
   const streakModal = $("streakModal");
-  const modalTitle = $("modalTitle");
-  const modalBody = $("modalBody");
-  const modalClose = $("modalClose");
-  const modalDownload = $("modalDownload");
-  const infoBtn = $("infoBtn");
+  const modalTitleRecord = $("modalTitleRecord");
+  const modalBodyRecord = $("modalBodyRecord");
+  const modalCloseRecord = $("modalCloseRecord");
+  const modalDownloadRecord = $("modalDownloadRecord");
 
+  const scoreMeta = $("scoreMeta");
+  const modalScoreMeta = $("modalScoreMeta");
+  const playerNameInput = $("playerNameInput");
+  const modalPlayerNameInput = $("modalPlayerNameInput");
 
-  // Safety: if HTML/JS mismatch, fail loudly in UI.
-  if (
-    !mount ||
-    !beginBtn || !playScale1Btn || !playScale2Btn || !playReferenceBtn ||
-    !answerScale1Btn || !answerScale2Btn || !rootModeSel ||
-    !downloadScoreBtn || !feedbackOut || !scoreOut ||
-    !streakModal || !modalTitle || !modalBody || !modalClose || !modalDownload
-  ) {
-    const msg = "UI mismatch: required elements are missing. Ensure index.html matches script.js.";
-    if (feedbackOut) feedbackOut.textContent = msg;
-    else alert(msg);
-    return;
+  // ---------- dynamic title resizing ----------
+  function setTitleMode(mode) {
+    if (!titleWrap) return;
+    titleWrap.classList.toggle("titleModeWide", mode === "wide");
+    titleWrap.classList.toggle("titleModeWrapped", mode === "wrapped");
+  }
+  function computeDesiredWideWidthPx() {
+    const cssMax = 600;
+    const natural = titleImgWide?.naturalWidth || cssMax;
+    return Math.min(cssMax, natural);
+  }
+  function updateTitleForWidth() {
+    if (!titleWrap || !titleImgWide || !titleImgWrapped) return;
+    const available = Math.floor(titleWrap.getBoundingClientRect().width);
+    const desiredWide = computeDesiredWideWidthPx();
+    if (available + 1 < desiredWide) setTitleMode("wrapped");
+    else setTitleMode("wide");
   }
 
-  // ---------- iframe sizing + scroll forwarding (template compatibility) ----------
+  // ---------- iframe sizing + scroll forwarding ----------
 
   let lastHeight = 0;
 
@@ -146,115 +171,22 @@
     setTimeout(postHeightNow, 500);
   });
 
-  function enableScrollForwardingToParent() {
-    const SCROLL_GAIN = 6.0;
-
-    const isVerticallyScrollable = () =>
-      document.documentElement.scrollHeight > window.innerHeight + 2;
-
-    const isInteractiveTarget = (t) =>
-      t instanceof Element && !!t.closest("button, a, input, select, textarea, label");
-
-    const isInPianoStrip = (t) =>
-      t instanceof Element && !!t.closest("#mount, .mount, svg, .key");
-
-    let startX = 0;
-    let startY = 0;
-    let lastY = 0;
-    let lockedMode = null;
-
-    let lastMoveTs = 0;
-    let vScrollTop = 0;
-
-    window.addEventListener("touchstart", (e) => {
-      if (!e.touches || e.touches.length !== 1) return;
-      const t = e.target;
-
-      lockedMode = null;
-      startX = e.touches[0].clientX;
-      startY = e.touches[0].clientY;
-      lastY = startY;
-
-      lastMoveTs = e.timeStamp || performance.now();
-      vScrollTop = 0;
-
-      if (isInteractiveTarget(t) || isInPianoStrip(t)) lockedMode = "x";
-    }, { passive: true });
-
-    window.addEventListener("touchmove", (e) => {
-      if (!e.touches || e.touches.length !== 1) return;
-      if (isVerticallyScrollable()) return;
-
-      const x = e.touches[0].clientX;
-      const y = e.touches[0].clientY;
-
-      const dx = x - startX;
-      const dy = y - startY;
-
-      if (!lockedMode) {
-        if (Math.abs(dy) > Math.abs(dx) + 4) lockedMode = "y";
-        else if (Math.abs(dx) > Math.abs(dy) + 4) lockedMode = "x";
-        else return;
-      }
-      if (lockedMode !== "y") return;
-
-      const nowTs = e.timeStamp || performance.now();
-      const dt = Math.max(8, nowTs - lastMoveTs);
-      lastMoveTs = nowTs;
-
-      const fingerStep = (y - lastY) * SCROLL_GAIN;
-      lastY = y;
-
-      const scrollTopDelta = -fingerStep;
-
-      const instV = scrollTopDelta / dt;
-      vScrollTop = vScrollTop * 0.75 + instV * 0.25;
-
-      e.preventDefault();
-      parent.postMessage({ scrollTopDelta }, "*");
-    }, { passive: false });
-
-    function endGesture() {
-      if (lockedMode === "y" && Math.abs(vScrollTop) > 0.05) {
-        const capped = Math.max(-5.5, Math.min(5.5, vScrollTop));
-        parent.postMessage({ scrollTopVelocity: capped }, "*");
-      }
-      lockedMode = null;
-      vScrollTop = 0;
-    }
-
-    window.addEventListener("touchend", endGesture, { passive: true });
-    window.addEventListener("touchcancel", endGesture, { passive: true });
-
-    window.addEventListener("wheel", (e) => {
-      if (isVerticallyScrollable()) return;
-      parent.postMessage({ scrollTopDelta: e.deltaY }, "*");
-    }, { passive: true });
-  }
-
-  enableScrollForwardingToParent();
-
   // ---------- state ----------
 
   let svg = null;
   const pitchToKey = new Map();
   let allPitches = [];
 
-  let started = false;
+  let hasInteracted = false;
+  let awaitingNext = false;
   let isPlaying = false;
-  let playingOwnerToken = null; // token that currently owns isPlaying state
+  let playingOwnerToken = null; 
 
-
+  let currentRootMode = "same"; 
   const score = { asked: 0, correct: 0, streak: 0, longestStored: 0 };
 
   let currentQuestion = null; // { scale1, scale2, majorIndex, majorName }
   let milestonesEnabled = true;
-
-  // Feedback popup mode (visual). The aria-live region (#feedbackOut) is kept for screen readers.
-  const USE_FEEDBACK_POPUP = true;
-  const FEEDBACK_POPUP_AUTOCLOSE_MS = 0; // set to 0 to require manual close
-  let feedbackPopupTimer = null;
-  let feedbackModalActive = false;
 
   // playback cancellation
   let playbackToken = 0;
@@ -264,34 +196,32 @@
 
   let audioCtx = null;
   let masterGain = null;
-  let limiter = null;
 
   const bufferPromiseCache = new Map();
   const activeVoices = new Set();
+  const activeUiAudios = new Set();
+  let synthFallbackWarned = false;
 
   function ensureAudioGraph() {
     if (audioCtx) return audioCtx;
 
     const Ctx = window.AudioContext || window.webkitAudioContext;
-    if (!Ctx) {
-      alert("Your browser doesn’t support Web Audio (required for playback).");
-      return null;
-    }
+    if (!Ctx) return null;
 
     audioCtx = new Ctx();
 
     masterGain = audioCtx.createGain();
     masterGain.gain.value = 0.92;
 
-    limiter = audioCtx.createDynamicsCompressor();
-    limiter.threshold.value = LIMITER_THRESHOLD_DB;
-    limiter.knee.value = 0;
-    limiter.ratio.value = 20;
-    limiter.attack.value = 0.001;
-    limiter.release.value = 0.12;
+    const compressor = audioCtx.createDynamicsCompressor();
+    compressor.threshold.value = -10;   
+    compressor.knee.value = 12;         
+    compressor.ratio.value = 12;        
+    compressor.attack.value = 0.002;    
+    compressor.release.value = 0.25;
 
-    masterGain.connect(limiter);
-    limiter.connect(audioCtx.destination);
+    masterGain.connect(compressor);
+    compressor.connect(audioCtx.destination);
 
     return audioCtx;
   }
@@ -318,14 +248,15 @@
     const now = ctx.currentTime;
     const fade = Math.max(0.01, Number.isFinite(fadeSec) ? fadeSec : STOP_FADE_SEC);
 
-    for (const v of Array.from(activeVoices)) {
+    activeVoices.forEach((v) => {
       try {
         v.gain.gain.cancelScheduledValues(now);
-        v.gain.gain.setTargetAtTime(0, now, fade / 6);
-        const stopAt = Math.max(now + fade, (v.startTime || now) + 0.001);
-        v.src.stop(stopAt + 0.02);
-      } catch {}
-    }
+        v.gain.gain.setValueAtTime(v.gain.gain.value, now);
+        v.gain.gain.exponentialRampToValueAtTime(0.0001, now + fade);
+        v.src.stop(now + fade + 0.05);
+      } catch (e) {}
+    });
+    activeVoices.clear();
   }
 
   function noteUrl(stem, octaveNum) {
@@ -353,9 +284,54 @@
     return p;
   }
 
-  function playVoiceAt(buffer, whenSec, { gain = 1, holdSec = NOTE_HOLD_SEC, fadeSec = NOTE_FADE_SEC } = {}) {
+  function pitchToFrequency(pitch) {
+    const A4 = pitchFromPcOct(9, 4);
+    return 440 * Math.pow(2, (pitch - A4) / 12);
+  }
+
+  function playSynthToneWindowed(pitch, whenSec, playSec, fadeOutSec, gain = 0.65) {
     const ctx = ensureAudioGraph();
     if (!ctx || !masterGain) return null;
+
+    const osc = ctx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(pitchToFrequency(pitch), whenSec);
+
+    const g = ctx.createGain();
+    const safeGain = Math.max(0, Number.isFinite(gain) ? gain : 0.65);
+    const fadeIn = 0.01;
+    const endAt = whenSec + Math.max(0.05, playSec);
+
+    g.gain.setValueAtTime(0, whenSec);
+    g.gain.linearRampToValueAtTime(safeGain, whenSec + fadeIn);
+
+    const fade = Math.max(0.015, Number.isFinite(fadeOutSec) ? fadeOutSec : 0.06);
+    const fadeStart = Math.max(whenSec + 0.02, endAt - fade);
+    g.gain.setValueAtTime(safeGain, fadeStart);
+    g.gain.linearRampToValueAtTime(0, endAt);
+
+    osc.connect(g);
+    g.connect(masterGain);
+
+    trackVoice(osc, g, whenSec);
+    osc.start(whenSec);
+    osc.stop(endAt + 0.03);
+    return osc;
+  }
+
+  function maybeWarnSynthFallback(missingUrl) {
+    if (synthFallbackWarned) return;
+    synthFallbackWarned = true;
+    console.warn("Audio sample missing; using synthesized tones instead:", missingUrl);
+  }
+
+  function playVoiceAt(buffer, pitch, whenSec, { gain = 1, holdSec = NOTE_HOLD_SEC, fadeSec = NOTE_FADE_SEC } = {}) {
+    const ctx = ensureAudioGraph();
+    if (!ctx || !masterGain) return null;
+
+    if (!buffer) {
+        return playSynthToneWindowed(pitch, whenSec, holdSec, fadeSec, gain * 0.7);
+    }
 
     const src = ctx.createBufferSource();
     src.buffer = buffer;
@@ -381,6 +357,35 @@
     return src;
   }
 
+  function stopAllUiSounds() {
+    for (const a of Array.from(activeUiAudios)) {
+      try { a.pause(); a.currentTime = 0; } catch {}
+      activeUiAudios.delete(a);
+    }
+  }
+
+  async function playUiSound(filename) {
+    try {
+      const url = `${AUDIO_DIR}/${filename}`;
+      const buffer = await loadBuffer(url);
+      if (!buffer) return;
+      const ctx = ensureAudioGraph();
+      if (!ctx) return;
+      
+      const when = ctx.currentTime;
+      const src = ctx.createBufferSource();
+      src.buffer = buffer;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(2.0, when);
+
+      src.connect(g);
+      g.connect(masterGain);
+      trackVoice(src, g, when);
+      src.start(when);
+    } catch (e) { console.error("UI Sound error:", e); }
+  }
+
+
   // ---------- pitch helpers ----------
 
   function pitchFromPcOct(pc, oct) { return (oct * 12) + pc; }
@@ -400,7 +405,7 @@
 
   function setResult(html) {
     const safe = html || "";
-    feedbackOut.innerHTML = safe ? `<span class="feedbackMsg">${safe}</span>` : "";
+    if (feedbackOut) feedbackOut.innerHTML = safe;
   }
 
   function scorePercent() {
@@ -412,6 +417,12 @@
     return Math.max(score.longestStored, score.streak);
   }
 
+  function updateScoreMetaText() {
+    const metaText = `Mode: ${currentRootMode === "same" ? "Same root" : "Different roots"}`;
+    if (scoreMeta) scoreMeta.textContent = metaText;
+    if (modalScoreMeta) modalScoreMeta.textContent = metaText;
+  }
+
   function renderScore() {
     const items = [
       ["Questions asked", score.asked],
@@ -421,61 +432,77 @@
       ["Percentage correct", `${scorePercent()}%`],
     ];
 
-    scoreOut.innerHTML =
-      `<div class="scoreGrid">` +
-      items.map(([k, v]) =>
+    scoreOut.innerHTML = items.map(([k, v]) =>
         `<div class="scoreItem"><span class="scoreK">${k}</span><span class="scoreV">${v}</span></div>`
-      ).join("") +
-      `</div>`;
+    ).join("");
+    
+    updateScoreMetaText();
   }
 
-  function showPopup(title, message, { showDownload = false } = {}) {
-    feedbackModalActive = true;
-    setControlsEnabled();
-
-    modalTitle.textContent = title;
-    modalBody.textContent = message;
-    modalDownload.classList.toggle("hidden", !showDownload);
-    streakModal.classList.remove("hidden");
-    modalClose.focus();
+  // Modals framework
+  let lastFocusEl = null;
+  function openModal(modalEl) {
+    lastFocusEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    modalEl.classList.remove("hidden");
+    postHeightNow();
   }
 
-  function hidePopup() {
-    streakModal.classList.add("hidden");
-    if (feedbackPopupTimer) { clearTimeout(feedbackPopupTimer); feedbackPopupTimer = null; }
-    feedbackModalActive = false;
-    setControlsEnabled();
-  }
-
-  function showFeedbackPopup(title, message) {
-    if (!USE_FEEDBACK_POPUP) return;
-    if (feedbackPopupTimer) { clearTimeout(feedbackPopupTimer); feedbackPopupTimer = null; }
-    feedbackModalActive = true;
-    showPopup(title, message, { showDownload: false });
-    setControlsEnabled();
-    if (FEEDBACK_POPUP_AUTOCLOSE_MS > 0) {
-      feedbackPopupTimer = setTimeout(() => {
-        hidePopup();
-      }, FEEDBACK_POPUP_AUTOCLOSE_MS);
+  function closeModal(modalEl) {
+    modalEl.classList.add("hidden");
+    postHeightNow();
+    if (lastFocusEl) {
+      try { lastFocusEl.focus(); } catch {}
     }
   }
 
-  function setControlsEnabled() {
-    const hasQ = !!currentQuestion;
+  function isVisible(modalEl) { return !modalEl.classList.contains("hidden"); }
 
-    playScale1Btn.disabled = !started || !hasQ || isPlaying || feedbackModalActive;
-    playScale2Btn.disabled = !started || !hasQ || isPlaying || feedbackModalActive;
-    playReferenceBtn.disabled = !started || isPlaying;
-
-    answerScale1Btn.disabled = !started || !hasQ || isPlaying;
-    answerScale2Btn.disabled = !started || !hasQ || isPlaying;
-
-    downloadScoreBtn.disabled = !started;
+  function showRecordPopup(title, message, { showDownload = false } = {}) {
+    if (!streakModal || !modalTitleRecord || !modalBodyRecord || !modalDownloadRecord || !modalCloseRecord) return;
+    modalTitleRecord.textContent = title;
+    modalBodyRecord.textContent = message;
+    modalDownloadRecord.classList.toggle("hidden", !showDownload);
+    openModal(streakModal);
+    modalCloseRecord.focus();
   }
 
-  function updateBeginButton() {
-    beginBtn.textContent = started ? "Restart Game" : "Begin Game";
-    beginBtn.classList.toggle("pulse", !started);
+  let scoreModalContinueCallback = null;
+  function showScoreModal(onContinue) {
+    scoreModalContinueCallback = onContinue;
+    
+    if ($("modalAsked")) $("modalAsked").textContent = score.asked;
+    if ($("modalCorrect")) $("modalCorrect").textContent = score.correct;
+    if ($("modalStreak")) $("modalStreak").textContent = score.streak;
+    if ($("modalLongest")) $("modalLongest").textContent = displayLongest();
+    if ($("modalPercent")) $("modalPercent").textContent = `${scorePercent()}%`;
+    
+    updateScoreMetaText();
+    openModal(scoreModal);
+    try { scoreModalContinueBtn.focus(); } catch {}
+  }
+
+
+  function setControlsEnabled() {
+    const hasQ = !!currentQuestion;
+    const isModalOpen = isVisible(introModal) || isVisible(settingsModal) || isVisible(infoModal) || isVisible(scoreModal) || isVisible(streakModal);
+
+    playScale1Btn.disabled = !hasQ || isPlaying || isModalOpen || awaitingNext;
+    playScale2Btn.disabled = !hasQ || isPlaying || isModalOpen || awaitingNext;
+    playReferenceBtn.disabled = isPlaying || isModalOpen || awaitingNext;
+
+    answerScale1Btn.disabled = !hasQ || awaitingNext || isPlaying || isModalOpen;
+    answerScale2Btn.disabled = !hasQ || awaitingNext || isPlaying || isModalOpen;
+
+    nextBtn.disabled = !awaitingNext || isModalOpen;
+    nextBtn.classList.toggle("nextReady", awaitingNext && !isModalOpen);
+
+    restartBtn.disabled = !hasInteracted || isModalOpen;
+    downloadScoreBtn.disabled = isModalOpen || score.asked === 0;
+  }
+
+  function clearAnswerButtonStates() {
+    answerScale1Btn.classList.remove("correct", "incorrect");
+    answerScale2Btn.classList.remove("correct", "incorrect");
   }
 
   function applyGlobalCssVars() {
@@ -510,17 +537,14 @@
 
     const cls = whichScale === 2 ? "flash2" : "flash1";
 
-    // Mark this key with the current flash token so stale timers can't "win".
     try { k.dataset.flashToken = String(token ?? ""); } catch {}
 
     k.classList.remove("flash1", "flash2");
-    // Force style flush for SVG so re-adding the same class reliably restarts animations.
     try { void k.getBoundingClientRect(); } catch {}
     k.classList.add(cls);
 
     const t = setTimeout(() => {
       try {
-        // Only remove if this timeout still corresponds to the last flash we applied to this key.
         if (String(k.dataset.flashToken || "") !== String(token ?? "")) return;
         k.classList.remove("flash1", "flash2");
         try { delete k.dataset.flashToken; } catch {}
@@ -603,7 +627,7 @@
     const maxRoot = maxPitch - 12;
     if (maxRoot < minPitch) return null;
 
-    const sameRoot = rootModeSel.value === "same";
+    const sameRoot = (currentRootMode === "same");
 
     const rootMajor = pickRandomRootPitchInRange(minPitch, maxRoot);
 
@@ -646,19 +670,24 @@
       const pc = Number(key.getAttribute("data-pc"));
       const oct = Number(key.getAttribute("data-oct"));
       const stem = getStemForPc(pc);
-      if (!stem) return null;
+      
+      let buf = null;
+      let url = null;
+      if (stem) {
+          url = noteUrl(stem, oct);
+          buf = await loadBuffer(url);
+          if (!buf) {
+            maybeWarnSynthFallback(url);
+          }
+      }
 
-      const url = noteUrl(stem, oct);
-      const buf = await loadBuffer(url);
-      if (!buf) return { missingUrl: url };
-
-      bufs.push({ pitch, buf });
+      bufs.push({ pitch, buf, url });
     }
     return { bufs };
   }
 
   async function playScale(pitches, labelForFeedback, whichScale) {
-    if (!started) return;
+    hasInteracted = true;
     const ctx = ensureAudioGraph();
     if (!ctx) return;
 
@@ -666,20 +695,22 @@
 
     const token = ++playbackToken;
 
-    // Cancel any pending visuals from a previous playback attempt.
-    clearFlashTimers(); // also clears any stuck flash classes
+    clearFlashTimers();
     stopAllNotes(0.10);
 
     isPlaying = true;
     playingOwnerToken = token;
     setControlsEnabled();
 
-    setResult(`Playing <strong>${labelForFeedback}</strong>…`);
+    // Only update feedback text if we're not waiting for next (so answers remain visible)
+    if (!awaitingNext) {
+      setResult(`Playing <strong>${labelForFeedback}</strong>…`);
+    }
 
     try {
       const loaded = await loadScaleBuffers(pitches);
-      if (!loaded || loaded.missingUrl) {
-        setResult(`Missing audio: <code>${loaded?.missingUrl || "unknown"}</code>`);
+      if (!loaded) {
+        if (!awaitingNext) setResult(`Error preparing audio.`);
         return;
       }
 
@@ -691,11 +722,10 @@
 
       for (let i = 0; i < bufs.length; i++) {
         const when = startCtx + (i * NOTE_GAP_SEC);
-        playVoiceAt(bufs[i].buf, when, { gain: 1, holdSec: NOTE_HOLD_SEC, fadeSec: NOTE_FADE_SEC });
+        playVoiceAt(bufs[i].buf, bufs[i].pitch, when, { gain: 1, holdSec: NOTE_HOLD_SEC, fadeSec: NOTE_FADE_SEC });
 
         const ms = Math.max(0, (when - startCtxAtWall) * 1000);
         const t = setTimeout(() => {
-          // If a newer playback started, don't flash this note.
           if (token !== playbackToken) return;
           flashKey(bufs[i].pitch, token, whichScale);
         }, ms);
@@ -706,11 +736,12 @@
       const finishMs = Math.max(0, totalSec * 1000 - (performance.now() - startWall));
       await new Promise((r) => setTimeout(r, finishMs));
 
-      if (token !== playbackToken) return; // cancelled/overridden
+      if (token !== playbackToken) return; 
 
-      setResult("Which was the Major scale? Choose <strong>Scale 1</strong> or <strong>Scale 2</strong>.");
+      if (!awaitingNext) {
+        setResult("Which was the Major scale? Choose <strong>Scale 1</strong> or <strong>Scale 2</strong>.");
+      }
     } finally {
-      // Only the most recent playScale call is allowed to re-enable controls.
       if (playingOwnerToken === token) {
         isPlaying = false;
         playingOwnerToken = null;
@@ -720,16 +751,18 @@
   }
 
   async function playScale1() {
-    if (!currentQuestion) return;
+    if (!currentQuestion || awaitingNext) return;
     await playScale(currentQuestion.scale1, "Scale 1", 1);
   }
 
   async function playScale2() {
-    if (!currentQuestion) return;
+    if (!currentQuestion || awaitingNext) return;
     await playScale(currentQuestion.scale2, "Scale 2", 2);
   }
 
   async function playReferenceCMajor() {
+    if (awaitingNext) return;
+    hasInteracted = true;
     const root = pitchFromPcOct(0, 4); // C4
     const pitches = buildMajorScale(root);
     await playScale(pitches, "C Major (C4)", 1);
@@ -742,36 +775,60 @@
     const msg = MILESTONES.get(score.streak);
     if (!msg) return;
 
-    showPopup("Milestone!", msg, { showDownload: false });
+    showRecordPopup("Milestone!", msg, { showDownload: false });
 
     if (score.streak >= 30) milestonesEnabled = false;
   }
 
   function answer(whichScale) {
-    if (!started || !currentQuestion || isPlaying) return;
+    if (!currentQuestion || isPlaying || awaitingNext) return;
+    hasInteracted = true;
+    awaitingNext = true;
 
     score.asked += 1;
 
     const correctScale = currentQuestion.majorIndex;
     const isCorrect = whichScale === correctScale;
+    
+    stopAllUiSounds();
+    clearAnswerButtonStates();
 
     if (isCorrect) {
+      setTimeout(() => playUiSound(UI_SND_CORRECT), 20);
       score.correct += 1;
       score.streak += 1;
       score.longestStored = Math.max(score.longestStored, score.streak);
 
-      const msg = `Correct! ✅ Scale ${correctScale} was the ${currentQuestion.majorName} scale.`;
-      setResult(`Correct! <span class="resultIcon" aria-hidden="true">✅</span> Scale ${correctScale} was the <strong>${currentQuestion.majorName}</strong> scale.`);
-      showFeedbackPopup("Correct!", msg);
+      if (whichScale === 1) answerScale1Btn.classList.add("correct");
+      else answerScale2Btn.classList.add("correct");
+
+      setResult(`Correct! ✅ Scale ${correctScale} was the Major Scale`);
       considerMilestonePopup();
     } else {
+      playUiSound(UI_SND_INCORRECT);
       score.streak = 0;
-      const msg = `Incorrect ❌ Scale ${correctScale} was the ${currentQuestion.majorName} scale.`;
-      setResult(`Incorrect <span class="resultIcon" aria-hidden="true">❌</span> Scale ${correctScale} was the <strong>${currentQuestion.majorName}</strong> scale.`);
-      showFeedbackPopup("Incorrect", msg);
+
+      if (whichScale === 1) answerScale1Btn.classList.add("incorrect");
+      else answerScale2Btn.classList.add("incorrect");
+
+      if (correctScale === 1) answerScale1Btn.classList.add("correct");
+      else answerScale2Btn.classList.add("correct");
+
+      setResult(`Incorrect! ❌ That was not the Major Scale - it was actually Scale ${correctScale}`);
     }
 
     renderScore();
+    setControlsEnabled();
+  }
+
+  async function goNext() {
+    if (!awaitingNext) return;
+    stopAllNotes(0.08);
+    stopAllUiSounds();
+
+    awaitingNext = false;
+    clearFlashTimers();
+    clearAnswerButtonStates();
 
     currentQuestion = generateQuestion();
     if (questionHint) {
@@ -779,40 +836,276 @@
         ? "Both scales start on the same root for this question."
         : "Scales may start on different roots for this question.";
     }
+    
+    setResult("Press <strong>Play Scale 1</strong> and <strong>Play Scale 2</strong>, then choose which was Major.");
     setControlsEnabled();
   }
 
+  function resetGame({ openIntro = false } = {}) {
+    stopAllNotes(0.08);
+    stopAllUiSounds();
+
+    isPlaying = false;
+    hasInteracted = false;
+    awaitingNext = false;
+    playbackToken += 1;
+    
+    clearFlashTimers();
+    clearAnswerButtonStates();
+
+    score.asked = 0;
+    score.correct = 0;
+    score.streak = 0;
+    score.longestStored = 0;
+    milestonesEnabled = true;
+
+    renderScore();
+    
+    if (openIntro) {
+      currentQuestion = null;
+      if (questionHint) questionHint.textContent = "";
+      setResult("Press <strong>Play Scale 1</strong> and <strong>Play Scale 2</strong>, then choose which was Major.");
+      setControlsEnabled();
+
+      openModal(introModal);
+      try { introBeginBtn.focus(); } catch {}
+    } else {
+      hasInteracted = true; 
+      currentQuestion = generateQuestion();
+      if (questionHint) {
+        questionHint.textContent = currentQuestion?.sameRoot
+          ? "Both scales start on the same root for this question."
+          : "Scales may start on different roots for this question.";
+      }
+
+      setResult("Press <strong>Play Scale 1</strong> and <strong>Play Scale 2</strong>, then choose which was Major.");
+      setControlsEnabled();
+    }
+  }
+
+  // Settings syncing logic
+  function isSettingsDirty() {
+    return settingsRootModeSelect.value !== currentRootMode;
+  }
+  
+  function updateSettingsDirtyUi() {
+    const dirty = isSettingsDirty();
+    settingsRestartBtn.disabled = !dirty;
+    settingsRestartBtn.classList.toggle("is-disabled", !dirty);
+  }
+  
+  function applyRootMode(newMode) {
+    currentRootMode = newMode;
+    updateScoreMetaText();
+  }
+
+  // Name input sync
+  function loadInitialName() {
+    const saved = localStorage.getItem(LS_KEY_NAME);
+    const v = String(saved || "").trim();
+    return v.slice(0, 32);
+  }
+
+  function saveName(name) { try { localStorage.setItem(LS_KEY_NAME, String(name || "").trim().slice(0, 32)); } catch {} }
+
+  function syncNames(val) {
+    if (playerNameInput && playerNameInput.value !== val) playerNameInput.value = val;
+    if (modalPlayerNameInput && modalPlayerNameInput.value !== val) modalPlayerNameInput.value = val;
+  }
+  if (playerNameInput) playerNameInput.addEventListener("input", (e) => syncNames(e.target.value));
+  if (modalPlayerNameInput) modalPlayerNameInput.addEventListener("input", (e) => syncNames(e.target.value));
+
+
   // ---------- PNG downloads ----------
-
-  function downloadBlob(blob, filename) {
-    const a = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 3000);
+  async function loadImage(src) {
+    return await new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = src;
+    });
+  }
+  
+  function drawImageContain(ctx, img, x, y, w, h) {
+    const iw = img.naturalWidth || img.width || 1;
+    const ih = img.naturalHeight || img.height || 1;
+    const r = Math.min(w / iw, h / ih);
+    const dw = Math.max(1, iw * r);
+    const dh = Math.max(1, ih * r);
+    const dx = x + (w - dw) / 2;
+    const dy = y + (h - dh) / 2;
+    ctx.drawImage(img, dx, dy, dw, dh);
+    return { w: dw, h: dh, x: dx, y: dy };
   }
 
-  function canvasToPngBlob(canvas) {
-    return new Promise((resolve) => canvas.toBlob((b) => resolve(b), "image/png"));
+  function drawRoundRect(ctx, x, y, w, h, r) {
+    const rr = Math.max(0, Math.min(r, Math.min(w, h) / 2));
+    ctx.beginPath();
+    ctx.moveTo(x + rr, y);
+    ctx.arcTo(x + w, y, x + w, y + h, rr);
+    ctx.arcTo(x + w, y + h, x, y + h, rr);
+    ctx.arcTo(x, y + h, x, y, rr);
+    ctx.arcTo(x, y, x + w, y, rr);
+    ctx.closePath();
   }
 
-  function drawCardBase(ctx, w, h) {
+  function sanitizeFilenamePart(s) {
+    const v = String(s || "").trim().replace(/\s+/g, "_");
+    const cleaned = v.replace(/[^a-zA-Z0-9_\-]+/g, "");
+    return cleaned.slice(0, 32) || "";
+  }
+  
+  function safeText(s) { return String(s || "").replace(/[\u0000-\u001f\u007f]/g, "").trim(); }
+
+  async function downloadScorecardPng(nameInputEl) {
+    const LAYOUT = {
+      gapAfterImage: 32,           
+      gapAfterUrl: 36,             
+      gapAfterTitle: 30,           
+      gapAfterMeta: 28,            
+      gapAfterName: 22,            
+      gapNoNameCompensation: 12,   
+      mainGridRowGap: 14,          
+    };
+
+    const name = safeText(nameInputEl?.value);
+    if (nameInputEl) saveName(name);
+
+    const W = 720;
+    const rowsCount = 5;
+    const rowH = 58;
+    const baseContentH = 340; 
+    const H = baseContentH + (rowsCount * (rowH + LAYOUT.mainGridRowGap)) + 80; 
+    
+    const dpr = Math.max(1, Math.floor((window.devicePixelRatio || 1) * 100) / 100);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.scale(dpr, dpr);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, W, H);
+
+    const pad = 34;
+    const cardX = pad;
+    const cardY = pad;
+    const cardW = W - pad * 2;
+    const cardH = H - pad * 2;
+
+    ctx.fillStyle = "#f9f9f9";
+    drawRoundRect(ctx, cardX, cardY, cardW, cardH, 18);
+    ctx.fill();
+
+    ctx.strokeStyle = "rgba(0,0,0,0.18)";
+    ctx.lineWidth = 1;
+    drawRoundRect(ctx, cardX, cardY, cardW, cardH, 18);
+    ctx.stroke();
+
+    const titleSrc = titleImgWide?.getAttribute("src") || "images/title.png";
+    const titleImg = await loadImage(titleSrc);
+
+    let yCursor = cardY + 26;
+
+    if (titleImg) {
+      const imgMaxW = Math.min(520, cardW - 40);
+      const imgMaxH = 92;
+      drawImageContain(ctx, titleImg, (W - imgMaxW) / 2, yCursor, imgMaxW, imgMaxH);
+      yCursor += imgMaxH + LAYOUT.gapAfterImage;
+    }
+
+    ctx.fillStyle = "rgba(0,0,0,0.6)";
+    ctx.font = "800 18px Arial, Helvetica, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("www.eartraininglab.com", W / 2, yCursor);
+    yCursor += LAYOUT.gapAfterUrl;
+
+    ctx.fillStyle = "#111";
+    ctx.textAlign = "center";
+    ctx.font = "700 26px Arial, Helvetica, sans-serif";
+    ctx.fillText("Score Card", W / 2, yCursor);
+    yCursor += LAYOUT.gapAfterTitle;
+
+    ctx.font = "800 18px Arial, Helvetica, sans-serif";
+    ctx.fillStyle = "rgba(0,0,0,0.70)";
+    ctx.fillText(`Mode: ${currentRootMode === "same" ? "Same root" : "Different roots"}`, W / 2, yCursor);
+    yCursor += LAYOUT.gapAfterMeta;
+
+    if (name) {
+      ctx.fillText(`Name: ${name}`, W / 2, yCursor);
+      yCursor += LAYOUT.gapAfterName;
+    } else {
+      yCursor += LAYOUT.gapNoNameCompensation; 
+    }
+
+    ctx.fillStyle = "#111";
+    ctx.textAlign = "left";
+
+    const rowX = cardX + 26;
+    const rowW = cardW - 52;
+    
+    const rows = [
+      ["Questions asked", String(score.asked)],
+      ["Answers correct", String(score.correct)],
+      ["Correct in a row", String(score.streak)],
+      ["Longest correct streak", String(displayLongest())],
+      ["Percentage correct", `${scorePercent()}%`],
+    ];
+
+    for (const [k, v] of rows) {
+      ctx.fillStyle = "#ffffff";
+      drawRoundRect(ctx, rowX, yCursor, rowW, rowH, 14);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,0.16)";
+      ctx.stroke();
+
+      ctx.fillStyle = "rgba(0,0,0,0.70)";
+      ctx.font = "900 18px Arial, Helvetica, sans-serif";
+      ctx.fillText(k, rowX + 16, yCursor + 33);
+
+      ctx.fillStyle = "#111";
+      ctx.font = "900 22px Arial, Helvetica, sans-serif";
+      ctx.textAlign = "right";
+      ctx.fillText(v, rowX + rowW - 16, yCursor + 37);
+      ctx.textAlign = "left";
+
+      yCursor += rowH + LAYOUT.mainGridRowGap;
+    }
+
+    ctx.textAlign = "center";
+    ctx.font = "800 14px Arial, Helvetica, sans-serif";
+    ctx.fillStyle = "rgba(0,0,0,0.55)";
+    ctx.fillText("Which is the Major Scale? - www.eartraininglab.com", W / 2, cardY + cardH - 24);
+
+    const fileBase = name ? `${sanitizeFilenamePart(name)}_scorecard` : "scorecard";
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${fileBase}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }, "image/png");
+  }
+
+  function drawCardBaseOld(ctx, w, h) {
     ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = "#fbfbfc";
     ctx.fillRect(0, 0, w, h);
-
     ctx.strokeStyle = "rgba(0,0,0,0.12)";
     ctx.lineWidth = 6;
     ctx.strokeRect(8, 8, w - 16, h - 16);
-
     ctx.fillStyle = "#111";
     ctx.fillRect(8, 8, w - 16, 74);
   }
 
-  function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight) {
+  function drawWrappedTextOld(ctx, text, x, y, maxWidth, lineHeight) {
     const words = String(text).split(/\s+/);
     let line = "";
     for (const word of words) {
@@ -828,62 +1121,6 @@
     if (line) ctx.fillText(line, x, y);
   }
 
-  function getPlayerName() {
-    const prev = localStorage.getItem("ms_player_name") || "";
-    const name = window.prompt("Enter your name for the score card:", prev) ?? "";
-    const trimmed = String(name).trim();
-    if (trimmed) localStorage.setItem("ms_player_name", trimmed);
-    return trimmed || "Player";
-  }
-
-  async function downloadScoreCardPng(playerName) {
-    const w = 620;
-    const h = 520;
-    const canvas = document.createElement("canvas");
-    canvas.width = w;
-    canvas.height = h;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    drawCardBase(ctx, w, h);
-
-    ctx.fillStyle = "#fff";
-    ctx.font = "900 28px Arial";
-    ctx.fillText("Which is the Major Scale? — Scorecard", 28, 56);
-
-    const bodyX = 28;
-    const bodyY = 130;
-
-    ctx.fillStyle = "#111";
-    ctx.font = "900 22px Arial";
-    ctx.fillText("Summary", bodyX, bodyY);
-
-    ctx.font = "700 20px Arial";
-    const lines = [
-      `Name: ${playerName}`,
-      `Root note mode: ${rootModeSel.value === "same" ? "Same root" : "Different roots"}`,
-      `Questions asked: ${score.asked}`,
-      `Answers correct: ${score.correct}`,
-      `Correct in a row: ${score.streak}`,
-      `Longest correct streak: ${displayLongest()}`,
-      `Percentage correct: ${scorePercent()}%`,
-    ];
-
-    let y = bodyY + 44;
-    for (const ln of lines) {
-      ctx.fillText(ln, bodyX, y);
-      y += 34;
-    }
-
-    ctx.fillStyle = "rgba(0,0,0,0.65)";
-    ctx.font = "700 16px Arial";
-    ctx.fillText("Downloaded from www.eartraininglab.com 🎶", bodyX, h - 36);
-
-    const blob = await canvasToPngBlob(canvas);
-    if (blob) downloadBlob(blob, "Which is the Major Scale - Scorecard.png");
-  }
-
   async function downloadRecordPng(streakValue, playerName) {
     const w = 980;
     const h = 420;
@@ -894,7 +1131,7 @@
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    drawCardBase(ctx, w, h);
+    drawCardBaseOld(ctx, w, h);
 
     ctx.fillStyle = "#fff";
     ctx.font = "900 30px Arial";
@@ -907,25 +1144,23 @@
     ctx.font = "700 22px Arial";
     ctx.fillStyle = "#111";
     const msg = `${playerName} just scored ${streakValue} correct answers in a row on the "Which is the Major Scale?" game 🎉🎶🥳`;
-    drawWrappedText(ctx, msg, 28, 200, w - 56, 34);
+    drawWrappedTextOld(ctx, msg, 28, 200, w - 56, 34);
 
     ctx.fillStyle = "rgba(0,0,0,0.65)";
     ctx.font = "700 16px Arial";
     ctx.fillText("Downloaded from www.eartraininglab.com 🎶", 28, h - 36);
 
-    const blob = await canvasToPngBlob(canvas);
-    if (blob) downloadBlob(blob, "Which is the Major Scale - Record.png");
-  }
-
-  async function onDownloadScoreCard() {
-    const name = getPlayerName();
-    await downloadScoreCardPng(name);
-  }
-
-  async function onDownloadRecord() {
-    const name = getPlayerName();
-    const v = displayLongest();
-    await downloadRecordPng(v, name);
+    canvas.toBlob((blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "Which Is The Major Scale Record.png";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }, "image/png");
   }
 
   // ---------- Keyboard SVG ----------
@@ -1208,98 +1443,93 @@
     }
 
     allPitches = [...pitchToKey.keys()].sort((a, b) => a - b);
-
-    // Piano keys are intentionally non-interactive in this game.
-    // (Clicking/playing individual notes could cancel a scale playback and leave the UI stuck.)
-  }
-
-  async function playSinglePitch(pitch) {
-    if (!Number.isFinite(pitch)) return;
-
-    const key = pitchToKey.get(pitch);
-    if (!key) return;
-
-    const pc = Number(key.getAttribute("data-pc"));
-    const oct = Number(key.getAttribute("data-oct"));
-    const stem = getStemForPc(pc);
-    if (!stem) return;
-
-    await resumeAudioIfNeeded();
-
-    const url = noteUrl(stem, oct);
-    const buf = await loadBuffer(url);
-    if (!buf) {
-      setResult(`Missing audio: <code>${url}</code>`);
-      return;
-    }
-
-    const ctx = ensureAudioGraph();
-    if (!ctx) return;
-
-    const token = ++playbackToken;
-    clearFlashTimers();
-    stopAllNotes(0.10);
-
-    playVoiceAt(buf, ctx.currentTime + 0.01, { gain: 0.9, holdSec: 0.6, fadeSec: 0.5 });
-    flashKey(pitch, token, 1);
-  }
-
-  // ---------- game loop ----------
-
-  function resetScore() {
-    stopAllNotes();
-    clearFlashTimers();
-
-    score.asked = 0;
-    score.correct = 0;
-    score.streak = 0;
-    score.longestStored = 0;
-    milestonesEnabled = true;
-
-    renderScore();
-  }
-
-  async function beginGame() {
-    await resumeAudioIfNeeded();
-
-    started = true;
-    updateBeginButton();
-    resetScore();
-
-    currentQuestion = generateQuestion();
-    if (questionHint) {
-      questionHint.textContent = currentQuestion?.sameRoot
-        ? "Both scales start on the same root for this question."
-        : "Scales may start on different roots for this question.";
-    }
-
-    setResult("Press <strong>Play Scale 1</strong> and <strong>Play Scale 2</strong>, then choose which was Major.");
-    setControlsEnabled();
-  }
-
-  async function restartGame() {
-    started = false;
-    isPlaying = false;
-    currentQuestion = null;
-    playbackToken += 1;
-
-    stopAllNotes();
-    clearFlashTimers();
-
-    updateBeginButton();
-    renderScore();
-    setResult("Press <strong>Begin Game</strong> to start.");
-    setControlsEnabled();
-
-    await beginGame();
   }
 
   // ---------- Events ----------
 
   function bind() {
-    beginBtn.addEventListener("click", async () => {
-      if (!started) await beginGame();
-      else await restartGame();
+    
+    // Intro modal
+    function handleIntroContinue() {
+      playUiSound(UI_SND_SELECT);
+      const newMode = String(introRootModeSelect.value || "same");
+      applyRootMode(newMode);
+      if (settingsRootModeSelect) settingsRootModeSelect.value = newMode;
+      
+      hasInteracted = true; 
+      currentQuestion = generateQuestion();
+      if (questionHint) {
+        questionHint.textContent = currentQuestion?.sameRoot
+          ? "Both scales start on the same root for this question."
+          : "Scales may start on different roots for this question.";
+      }
+
+      closeModal(introModal);
+      resumeAudioIfNeeded();
+      setResult("Press <strong>Play Scale 1</strong> and <strong>Play Scale 2</strong>, then choose which was Major.");
+      setControlsEnabled();
+      try { playScale1Btn.focus(); } catch {}
+    }
+    introBeginBtn.addEventListener("click", handleIntroContinue);
+    
+    // Settings modal
+    settingsBtn.addEventListener("click", () => {
+        playUiSound(UI_SND_SELECT);
+        stopAllNotes(0.06);
+        if (settingsRootModeSelect) settingsRootModeSelect.value = currentRootMode;
+        openModal(settingsModal);
+        updateSettingsDirtyUi();
+        try { settingsRootModeSelect.focus(); } catch {}
+    });
+    
+    settingsCancelBtn.addEventListener("click", () => {
+        playUiSound(UI_SND_BACK);
+        if (settingsRootModeSelect) settingsRootModeSelect.value = currentRootMode;
+        updateSettingsDirtyUi();
+        closeModal(settingsModal);
+    });
+    
+    settingsRootModeSelect.addEventListener("change", updateSettingsDirtyUi);
+    
+    settingsRestartBtn.addEventListener("click", () => {
+      if (settingsRestartBtn.disabled) return;
+      playUiSound(UI_SND_SELECT);
+      const newMode = String(settingsRootModeSelect.value || "same");
+      
+      closeModal(settingsModal);
+
+      showScoreModal(() => {
+        applyRootMode(newMode);
+        if (introRootModeSelect) introRootModeSelect.value = newMode;
+        resetGame({ openIntro: false });
+      });
+    });
+
+    // Info Modal
+    infoBtn.addEventListener("click", () => {
+        playUiSound(UI_SND_SELECT);
+        stopAllNotes(0.06);
+        openModal(infoModal);
+        try { infoClose.focus(); } catch {}
+    });
+
+    infoClose.addEventListener("click", () => {
+        playUiSound(UI_SND_BACK);
+        closeModal(infoModal);
+    });
+
+    // Score modal
+    scoreModalContinueBtn.addEventListener("click", () => {
+      playUiSound(UI_SND_SELECT);
+      closeModal(scoreModal);
+      if (scoreModalContinueCallback) scoreModalContinueCallback();
+    });
+
+    // Main buttons
+    restartBtn.addEventListener("click", () => {
+      showScoreModal(() => {
+        resetGame({ openIntro: true });
+      });
     });
 
     playScale1Btn.addEventListener("click", playScale1);
@@ -1309,52 +1539,125 @@
     answerScale1Btn.addEventListener("click", () => answer(1));
     answerScale2Btn.addEventListener("click", () => answer(2));
 
-    downloadScoreBtn.addEventListener("click", onDownloadScoreCard);
+    nextBtn.addEventListener("click", goNext);
 
-    infoBtn.addEventListener("click", () => {
-      // Optional: if the feedback popup is auto-closing, stop that timer so it doesn't close your info popup.
-      if (feedbackPopupTimer) { clearTimeout(feedbackPopupTimer); feedbackPopupTimer = null; }
-    
-      showPopup(
-        "More information",
-        'The vast majority of Western music uses the major scale as it\'s harmonic basis. Becuase of this, and because of our continued exposire to Western music, we are often able to recognise the sound or \'tonality\' of the major scale. Recognising the major scale is a very useful skill, and something we can practice here.',
-        { showDownload: false }
-      );
+    downloadScoreBtn.addEventListener("click", () => {
+      playUiSound(UI_SND_SELECT);
+      downloadScorecardPng(playerNameInput);
+    });
+    modalDownloadScorecardBtn.addEventListener("click", () => {
+      playUiSound(UI_SND_SELECT);
+      downloadScorecardPng(modalPlayerNameInput);
     });
     
+    modalDownloadRecord.addEventListener("click", () => {
+        const name = safeText(playerNameInput.value) || "Player";
+        downloadRecordPng(score.longestStored || displayLongest(), name);
+    });
 
-    modalClose.addEventListener("click", hidePopup);
+    // Modals closing overrides
+    modalCloseRecord?.addEventListener("click", () => {
+        playUiSound(UI_SND_BACK);
+        closeModal(streakModal);
+    });
+    streakModal?.addEventListener("click", (e) => { 
+        if (e.target === streakModal) {
+            playUiSound(UI_SND_BACK);
+            closeModal(streakModal); 
+        }
+    });
+    introModal?.addEventListener("click", (e) => { 
+        if (e.target === introModal) {
+            playUiSound(UI_SND_BACK);
+            closeModal(introModal); 
+        }
+    });
+    settingsModal?.addEventListener("click", (e) => { 
+        if (e.target === settingsModal) {
+            playUiSound(UI_SND_BACK);
+            if (settingsRootModeSelect) settingsRootModeSelect.value = currentRootMode;
+            closeModal(settingsModal);
+        }
+    });
+    infoModal?.addEventListener("click", (e) => { 
+        if (e.target === infoModal) {
+            playUiSound(UI_SND_BACK);
+            closeModal(infoModal);
+        }
+    });
 
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && !streakModal.classList.contains("hidden")) hidePopup();
-});
-
-streakModal.addEventListener("click", (e) => {
-  if (e.target === streakModal) hidePopup();
-});
-
-    modalDownload.addEventListener("click", onDownloadRecord);
+    window.addEventListener("resize", () => {
+      updateTitleForWidth();
+    });
 
     document.addEventListener("keydown", async (e) => {
-      if (!started) return;
+      if (e.key === "Escape") {
+        if (isVisible(settingsModal)) {
+          playUiSound(UI_SND_BACK);
+          if (settingsRootModeSelect) settingsRootModeSelect.value = currentRootMode;
+          closeModal(settingsModal);
+          return;
+        }
+        if (isVisible(infoModal)) {
+          playUiSound(UI_SND_BACK);
+          closeModal(infoModal);
+          return;
+        }
+        if (isVisible(streakModal)) { 
+          playUiSound(UI_SND_BACK);
+          closeModal(streakModal); 
+          return; 
+        }
+        return;
+      }
+
+      if (isVisible(settingsModal) || isVisible(introModal) || isVisible(scoreModal) || isVisible(streakModal) || isVisible(infoModal)) return;
 
       if (e.code === "Digit1") { e.preventDefault(); await playScale1(); }
       if (e.code === "Digit2") { e.preventDefault(); await playScale2(); }
       if (e.code === "KeyC") { e.preventDefault(); await playReferenceCMajor(); }
 
-      if (e.code === "KeyQ") { e.preventDefault(); answer(1); }
-      if (e.code === "KeyW") { e.preventDefault(); answer(2); }
+      if (!awaitingNext && !isPlaying) {
+        if (e.code === "KeyQ" || e.code === "ArrowLeft") { e.preventDefault(); answer(1); }
+        if (e.code === "KeyW" || e.code === "ArrowRight") { e.preventDefault(); answer(2); }
+      }
+
+      if (e.code === "Space" || e.code === "Enter") {
+        e.preventDefault();
+        if (awaitingNext) await goNext();
+      }
     });
+  }
+
+  function initTitleSwap() {
+    if (!titleWrap || !titleImgWide || !titleImgWrapped) return;
+
+    const tryUpdate = () => updateTitleForWidth();
+
+    if (titleImgWide.complete) tryUpdate();
+    else titleImgWide.addEventListener("load", tryUpdate, { once: true });
+
+    if (titleImgWrapped.complete) tryUpdate();
+    else titleImgWrapped.addEventListener("load", tryUpdate, { once: true });
+
+    const tro = new ResizeObserver(() => updateTitleForWidth());
+    tro.observe(titleWrap);
   }
 
   function init() {
     applyGlobalCssVars();
     bind();
+    initTitleSwap();
     initKeyboard();
-    renderScore();
-    updateBeginButton();
-    setControlsEnabled();
-    setResult("Press <strong>Begin Game</strong> to start.");
+
+    const initialName = loadInitialName();
+    if (playerNameInput) playerNameInput.value = initialName;
+    if (modalPlayerNameInput) modalPlayerNameInput.value = initialName;
+
+    applyRootMode("same");
+
+    updateTitleForWidth();
+    resetGame({ openIntro: true });
   }
 
   init();
